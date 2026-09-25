@@ -1,0 +1,28 @@
+# Ambiente Virtual
+venv/
+ENV/
+env/
+.venv
+
+# Variaveis de ambiente
+.env
+
+# Arquivos de Compilacao Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+
+# Documentos
+documents/*.pdf
+documents/*.txt
+documents/*.md
+!documents/.gitkeep
+
+# Arquivos temporarios / logs
+*.log

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Chatbot - Enterprise</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-bg: #171717;
+            --main-bg: #212121;
+            --text-light: #ececec;
+            --text-muted: #b4b4b4;
+            --border-color: #383838;
+            --google-blue: #1a73e8;
+            --user-bubble: #2f2f2f;
+            --hover-bg: #2a2a2a;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', 'Segoe UI', sans-serif; }
+        body { display: flex; height: 100vh; background-color: var(--main-bg); color: var(--text-light); overflow: hidden; }
+
+        /* Sidebar */
+        .sidebar { width: 260px; background-color: var(--sidebar-bg); display: flex; flex-direction: column; padding: 16px; border-right: 1px solid var(--border-color); }
+        .sidebar-header { margin-bottom: 24px; }
+        .sidebar-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 4px; }
+        .badge { background-color: rgba(26, 115, 232, 0.1); color: var(--google-blue); font-size: 0.75rem; padding: 4px 8px; border-radius: 4px; font-weight: 600; display: inline-block; }
+        
+        .new-chat-btn { background-color: transparent; color: var(--text-light); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; transition: background 0.2s; margin-bottom: 24px; }
+        .new-chat-btn:hover { background-color: var(--hover-bg); }
+
+        .section-title { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; font-weight: 600; }
+        
+        .upload-area { border: 2px dashed var(--border-color); border-radius: 8px; padding: 20px 10px; text-align: center; cursor: pointer; margin-bottom: 16px; transition: border 0.3s; }
+        .upload-area:hover, .upload-area.dragover { border-color: var(--google-blue); background-color: rgba(26, 115, 232, 0.05); }
+        .upload-area i { font-size: 1.5rem; color: var(--text-muted); margin-bottom: 8px; }
+        .upload-area p { font-size: 0.8rem; color: var(--text-muted); }
+        .upload-progress { display: none; font-size: 0.8rem; color: var(--google-blue); margin-top: 8px; }
+        
+        .docs-list { flex-grow: 1; overflow-y: auto; margin-bottom: 16px; scrollbar-width: none; }
+        .doc-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; font-size: 0.85rem; border-radius: 6px; }
+        .doc-item:hover { background-color: var(--hover-bg); }
+        .doc-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+        .delete-btn { color: #ff4d4f; cursor: pointer; background: none; border: none; padding: 4px; border-radius: 4px; }
+        .delete-btn:hover { background-color: rgba(255, 77, 79, 0.1); }
+
+        .status-container { border-top: 1px solid var(--border-color); padding-top: 16px; font-size: 0.8rem; color: var(--text-muted); }
+        .status-container p { margin-bottom: 4px; }
+
+        /* Main Chat */
+        .main { flex-grow: 1; display: flex; flex-direction: column; position: relative; }
+        .chat-container { flex-grow: 1; overflow-y: auto; padding: 40px; display: flex; flex-direction: column; gap: 24px; scroll-behavior: smooth; }
+        
+        .message-row { display: flex; max-width: 850px; margin: 0 auto; width: 100%; gap: 16px; }
+        .message-row.user { justify-content: flex-end; }
+        
+        .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; }
+        .avatar.bot { background-color: var(--google-blue); color: white; }
+        
+        .message-content { max-width: 90%; line-height: 1.6; font-size: 1rem; color: var(--text-light); }
+        .message-row.user .message-content { background-color: var(--user-bubble); padding: 12px 16px; border-radius: 16px; border-bottom-right-radius: 4px; }
+        .message-row.bot .message-content { padding: 4px 0; }
+        
+        /* Markdown / Action Utils */
+        .message-content p { margin-bottom: 12px; }
+        .message-content p:last-child { margin-bottom: 0; }
+        .message-content code { background-color: #000; padding: 2px 4px; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
+        .message-content pre { background-color: #000; padding: 12px; border-radius: 8px; overflow-x: auto; margin-bottom: 12px; }
+        .message-content ul, .message-content ol { margin-left: 20px; margin-bottom: 12px; }
+        .message-content a { color: var(--google-blue); }
+
+        .fontes-container { font-size:0.75rem; color:var(--text-muted); margin-top:12px; border-top:1px solid var(--border-color); padding-top:12px; }
+        .fontes-container ul { margin-top:8px; margin-bottom:0 !important; color: #a1a1a1; }
+        .cost-badge { font-size: 0.70rem; color: #777; margin-top:8px; margin-bottom: 4px; }
+        
+        .copy-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 4px; padding: 4px 8px; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s; }
+        .copy-btn:hover { background: #333; color: white; }
+
+        /* Input */
+        .input-wrapper { max-width: 850px; margin: 0 auto; width: 100%; padding: 0 40px 40px 40px; position: relative; }
+        .input-box { background-color: var(--user-bubble); border: 1px solid var(--border-color); border-radius: 16px; padding: 14px 48px 14px 16px; width: 100%; display: flex; align-items: center; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+        .input-box textarea { width: 100%; background: transparent; border: none; color: var(--text-light); font-size: 1rem; resize: none; outline: none; height: 24px; max-height: 200px; line-height: 24px; scrollbar-width: none;}
+        .send-btn { position: absolute; right: 52px; bottom: 50px; background: var(--google-blue); color: white; border: none; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s; }
+        .send-btn:hover { background-color: #1557b0; }
+        .send-btn:disabled { background-color: #444; color: #888; cursor: not-allowed; }
+
+        /* Loading Dots */
+        .loading { display: flex; gap: 4px; padding: 8px 0; }
+        .dot { width: 6px; height: 6px; background-color: var(--text-muted); border-radius: 50%; animation: pulse 1.5s infinite ease-in-out both; }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes pulse { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+        
+        #file-input { display: none; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">RAG Chatbot</h1>
+            <span class="badge">Powered by Gemini</span>
+        </div>
+
+        <button class="new-chat-btn" onclick="startNewChat()">
+            <i class="fa-solid fa-plus"></i> Nova conversa
+        </button>
+
+        <h2 class="section-title">Upload de Contexto</h2>
+        <div class="upload-area" id="drop-zone" onclick="document.getElementById('file-input').click()">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p>Arraste PDFs ou TXTs</p>
+            <p style="font-size: 0.7rem; margin-top: 4px;">ou clique para abrir</p>
+            <div class="upload-progress" id="upload-status">Enviando...</div>
+        </div>
+        <input type="file" id="file-input" accept=".pdf,.txt" onchange="handleFileUpload(event)">
+
+        <h2 class="section-title">Documentos</h2>
+        <div class="docs-list" id="docs-list"></div>
+
+        <div class="status-container">
+            <p><i class="fa-solid fa-database"></i> <span id="stat-docs">0</span> docs indexados</p>
+            <p><i class="fa-solid fa-layer-group"></i> <span id="stat-chunks">0</span> chunks no FAISS</p>
+            <p id="stat-model" style="margin-top:8px; font-size: 0.7rem; color: #777;">gemini-1.5-flash</p>
+        </div>
+    </div>
+
+    <!-- MAIN CHAT -->
+    <div class="main">
+        <div class="chat-container" id="chat-container">
+            <div class="message-row bot" id="welcome-msg">
+                <div class="avatar bot">G</div>
+                <div class="message-content">
+                    <p>Olá! Baseado nos últimos documentos que foram anexados, posso te responder perguntas exatas limitando a fuga de escopo. Tente!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-wrapper">
+            <div class="input-box">
+                <textarea id="prompt-input" placeholder="Pergunte sobre seus documentos..." rows="1" oninput="autoResize(this)" onkeydown="checkEnter(event)"></textarea>
+            </div>
+            <button class="send-btn" id="send-btn" onclick="sendMessage()">
+                <i class="fa-solid fa-arrow-up"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = window.crypto && window.crypto.randomUUID ? crypto.randomUUID() : 'sess_' + Math.random().toString(36).substring(2);
+        const API_BASE = window.location.origin;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshStatus();
+            refreshDocs();
+            setupDragAndDrop();
+        });
+
+        async function refreshStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/status`);
+                if(res.ok){
+                    const data = await res.json();
+                    document.getElementById('stat-docs').innerText = data.documentos_indexados;
+                    document.getElementById('stat-chunks').innerText = data.chunks;
+                    document.getElementById('stat-model').innerText = data.modelo_em_uso;
+                }
+            } catch(e) {}
+        }
+
+        async function refreshDocs() {
+            try {
+                const res = await fetch(`${API_BASE}/documentos`);
+                if(res.ok){
+                    const files = await res.json();
+                    const list = document.getElementById('docs-list');
+                    list.innerHTML = '';
+                    files.forEach(f => {
+                        const kbString = (f.tamanho / 1024).toFixed(1) + ' KB';
+                        const el = document.createElement('div');
+                        el.className = 'doc-item';
+                        el.innerHTML = `
+                            <div class="doc-name" title="${f.nome}">
+                                <i class="fa-regular fa-file-lines" style="margin-right:6px"></i>${f.nome}
+                                <div style="font-size: 0.6rem; color: var(--text-muted)">${kbString}</div>
+                            </div>
+                            <button class="delete-btn" onclick="deleteDoc('${f.nome}')" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                        `;
+                        list.appendChild(el);
+                    });
+                }
+            } catch(e) {}
+        }
+
+        async function deleteDoc(nome) {
+            try {
+                await fetch(`${API_BASE}/documentos/${encodeURIComponent(nome)}`, { method: 'DELETE' });
+                refreshDocs();
+                refreshStatus();
+            } catch(e) { alert('Falha ao remover arquivo.'); }
+        }
+
+        async function startNewChat() {
+            try {
+                await fetch(`${API_BASE}/chat/limpar/${sessionId}`, { method: 'POST' });
+            } catch(e) {} 
+            
+            sessionId = window.crypto && window.crypto.randomUUID ? crypto.randomUUID() : 'sess_' + Math.random().toString(36).substring(2);
+            document.getElementById('chat-container').innerHTML = `
+                <div class="message-row bot">
+                    <div class="avatar bot">G</div>
+                    <div class="message-content"><p>Sessão e logs de histórico limitador perfeitamente zerados. Como posso ajudar?</p></div>
+                </div>
+            `;
+        }
+
+        // CHAT ENGINE UI
+
+        function autoResize(el) {
+            el.style.height = '24px';
+            el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+        }
+
+        function checkEnter(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function scrollToBottom() {
+            const chat = document.getElementById('chat-container');
+            chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' });
+        }
+
+        function appendMessage(text, isBot=false, metadata={}) {
+            const chat = document.getElementById('chat-container');
+            const row = document.createElement('div');
+            row.className = `message-row ${isBot ? 'bot' : 'user'}`;
+            
+            let htmlContent = text;
+            let extrasHtml = "";
+
+            if (isBot) {
+                htmlContent = marked.parse(text);
+                
+                // Mapeia Array do Resumo de Fontes
+                if (metadata.fontes && metadata.fontes.length > 0) {
+                    let f_list = `<div class="fontes-container"><strong>Referências utilizadas na dedução:</strong><ul>`;
+                    metadata.fontes.forEach(f => {
+                        f_list += `<li>Baseado em: <strong>${f.arquivo}</strong> — <i>${f.trecho_resumo}</i></li>`;
+                    });
+                    f_list += `</ul></div>`;
+                    extrasHtml += f_list;
+                }
+                
+                // Mapeia Badge do Custo Financeiro
+                if (metadata.custo_estimado_usd !== undefined) {
+                    extrasHtml += `<div class="cost-badge">Tokens Input: ${metadata.tokens_entrada || 0} / Output: ${metadata.tokens_saida || 0} | <strong>Custo USD Estimado: $${metadata.custo_estimado_usd.toFixed(6)}</strong></div>`;
+                }
+
+                // Protege payload de quebrar evento nativo js pelo DOM limitando para b64
+                const encodedRaw = encodeURIComponent(text);
+                extrasHtml += `<div style="margin-top:12px; display:flex;">
+                                  <button class="copy-btn" onclick="navigator.clipboard.writeText(decodeURIComponent('${encodedRaw}'))">
+                                     <i class="fa-regular fa-copy"></i> Copiar original
+                                  </button>
+                               </div>`;
+                               
+            } else {
+                htmlContent = `<p>${text.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\\n/g, "<br>")}</p>`;
+            }
+
+            row.innerHTML = `
+                ${isBot ? '<div class="avatar bot">G</div>' : ''}
+                <div class="message-content">
+                    ${htmlContent}
+                    ${extrasHtml}
+                </div>
+            `;
+            
+            chat.appendChild(row);
+            scrollToBottom();
+            return row;
+        }
+
+        function toggleLoading(visible) {
+            const chat = document.getElementById('chat-container');
+            if (visible) {
+                const row = document.createElement('div');
+                row.className = `message-row bot`;
+                row.id = 'loading-msg';
+                row.innerHTML = `<div class="avatar bot">G</div>
+                                 <div class="message-content">
+                                    <div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+                                 </div>`;
+                chat.appendChild(row);
+                scrollToBottom();
+            } else {
+                const l = document.getElementById('loading-msg');
+                if(l) l.remove();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('prompt-input');
+            const text = input.value.trim();
+            const btn = document.getElementById('send-btn');
+            
+            if(!text) return;
+            
+            input.value = '';
+            input.style.height = '24px';
+            btn.disabled = true;
+            
+            appendMessage(text, false);
+            toggleLoading(true);
+
+            try {
+                const res = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pergunta: text, session_id: sessionId })
+                });
+                
+                toggleLoading(false);
+
+                if (res.status === 429) {
+                    appendMessage("⚠️ Alerta: Você excedeu o limite de requisições de segurança desta API. Tente novamente em um minuto.", true);
+                } else if(!res.ok) {
+                    appendMessage("Erro interno ao solicitar a Engine RAG.", true);
+                } else {
+                    const data = await res.json();
+                    appendMessage(data.resposta || "Nenhuma resposta fornecida.", true, data);
+                    
+                    if(data.chunks_usados > 0) {
+                        scrollToBottom();
+                    }
+                }
+            } catch(e) {
+                toggleLoading(false);
+                appendMessage("Falha fatal na comunicação web local.", true);
+            } finally {
+                btn.disabled = false;
+                input.focus();
+            }
+        }
+
+        // DRAG DROP PIPELINES
+
+        function handleFileUpload(e) {
+            if(e.target.files.length > 0) uploadFile(e.target.files[0]);
+        }
+
+        function setupDragAndDrop() {
+            const zone = document.getElementById('drop-zone');
+            zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+            zone.addEventListener('dragleave', (e) => { e.preventDefault(); zone.classList.remove('dragover'); });
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault(); zone.classList.remove('dragover');
+                if(e.dataTransfer.files.length > 0) uploadFile(e.dataTransfer.files[0]);
+            });
+        }
+
+        async function uploadFile(file) {
+            if(!file.name.toLowerCase().endsWith('.pdf') && !file.name.toLowerCase().endsWith('.txt')){
+                alert("Aviso: Formato irregular."); return;
+            }
+
+            const statusText = document.getElementById('upload-status');
+            statusText.style.display = 'block';
+            statusText.style.color = 'var(--text-muted)';
+            statusText.innerText = `Lendo PDF/TXT...`;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: formData });
+                const data = await res.json();
+                
+                if(res.status === 429){
+                    throw new Error("Muitos requests! Aguarde.");
+                } else if(!res.ok) {
+                    throw new Error(data.detail || "Erro no salvamento.");
+                }
+
+                statusText.style.color = '#10a37f';
+                statusText.innerText = `Processado e guardado! (${data.total_chunks} chunks totais)`;
+                
+                refreshDocs();
+                refreshStatus();
+                setTimeout(() => { statusText.style.display = 'none'; }, 4000);
+            } catch(e) {
+                statusText.style.color = '#ff4d4f';
+                statusText.innerText = e.message;
+            } finally {
+                document.getElementById('file-input').value = '';
+            }
+        }
+    </script>
+</body>
+</html>

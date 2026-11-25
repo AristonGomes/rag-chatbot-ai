@@ -1,92 +1,91 @@
-# RAG Chatbot AI 🤖
+# RAG Chatbot AI
 
-Um Chatbot inteligente que utiliza a técnica de **RAG (Retrieval-Augmented Generation)** para responder perguntas baseadas em seus próprios documentos locais. O sistema utiliza a API do **Google Gemini** para geração de texto e **FAISS** com **Sentence Transformers** para a busca semântica.
+Aplicação de pergunta e resposta sobre documentos locais baseada em **RAG (Retrieval-Augmented Generation)**. O sistema combina indexação vetorial local com **FAISS** e **Sentence Transformers** para busca semântica e utiliza a API do **Google Gemini (`gemini-1.5-flash`)** para geração de respostas fundamentadas nas fontes.
 
-## 🚀 Funcionalidades
+---
 
-- **Processamento de Documentos**: Suporte para arquivos `.pdf` e `.txt`.
-- **Busca Semântica Avançada**: Utiliza embeddings vetoriais para encontrar os trechos mais relevantes.
-- **Persistent Index**: O banco de dados vetorial (FAISS) é salvo em disco, evitando a reindexação a cada reinício.
-- **Interface Moderna**: UI estilo ChatGPT com suporte a Markdown, Dark Mode e animações.
-- **Rastreabilidade**: Informa quais fontes e trechos foram usados para gerar cada resposta.
-- **Gestão de Custos**: Estimativa de custo (em USD) baseada nos tokens de entrada e saída da API.
-- **Performance e Segurança**: Rate limiting de requisições e persistência de histórico (limitado a 10 mensagens por sessão).
+## Funcionalidades
 
-## 🛠️ Tecnologias Utilizadas
+- **Ingestão de Documentos:** upload e fragmentação (*chunking*) de arquivos `.pdf` (via `PyMuPDF`) e `.txt`.
+- **Busca Semântica Local:** geração de embeddings com o modelo `all-MiniLM-L6-v2` e armazenamento em índice vetorial `FAISS` persistido em disco (`faiss_index.bin`).
+- **Rastreabilidade de Fontes:** cada resposta informa os documentos e trechos utilizados como contexto, reduzindo alucinações.
+- **Estimativa de Custos e Tokens:** cálculo em tempo real do consumo de tokens de entrada/saída e custo estimado por interação.
+- **Gestão de Sessão e Segurança:** histórico contextual em memória (limitado às últimas 10 interações por sessão) e *rate limiting* (20 requisições/minuto por IP nas rotas críticas).
+- **Interface Web Integrada:** frontend single-page com suporte a Markdown, gerenciamento de arquivos indexados e indicadores técnicos da base vetorial.
 
-- **Backend**: Python 3.9+, FastAPI, Uvicorn.
-- **IA/ML**: Google Generative AI (Gemini 1.5 Flash), Sentence-Transformers (`all-MiniLM-L6-v2`), FAISS-CPU.
-- **Frontend**: HTML5, CSS3 (Vanilla), JavaScript (Vanilla), Marked.js (Markdown).
-- **Processamento de PDF**: PyMuPDF (fitz).
+---
 
-## 📋 Pré-requisitos
+## Tecnologias Utilizadas
 
-Antes de começar, você precisará de:
-1. Uma chave de API do Google Gemini. Obtenha em: [Google AI Studio](https://aistudio.google.com/).
-2. Python instalado (versão 3.9 ou superior recomendada).
+- **Backend:** Python 3.9+, FastAPI, Uvicorn
+- **Busca Vetorial & Embeddings:** `faiss-cpu`, `sentence-transformers` (`all-MiniLM-L6-v2`)
+- **LLM:** Google Generative AI (`gemini-1.5-flash`)
+- **Processamento de Documentos:** `PyMuPDF` (`fitz`)
+- **Frontend:** HTML5, CSS3, JavaScript (Vanilla) e `Marked.js`
 
-## ⚙️ Configuração
+---
 
-1. **Clonar/Extrair o projeto**:
-   ```bash
-   cd rag-chatbot-ai
-   ```
-
-2. **Instalar Dependências**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Configurar Variáveis de Ambiente**:
-   - Renomeie o arquivo `.env.example` para `.env`.
-   - Insira sua chave da API:
-     ```env
-     GEMINI_API_KEY=SUA_CHAVE_AQUI
-     GEMINI_MODEL=gemini-1.5-flash
-     MAX_CHUNKS=4
-     MIN_SCORE=0.3
-     ```
-
-## 🏃 Como Rodar
-
-1. **Inicie o servidor (Backend)**:
-   ```bash
-   uvicorn main:app --reload
-   ```
-
-2. **Acesse a Aplicação**:
-   - Abra o navegador em `http://127.0.0.1:8000`.
-   - A interface do chatbot será carregada automaticamente.
-
-## 📂 Estrutura do Projeto
+## Estrutura do Projeto
 
 ```text
 rag-chatbot-ai/
-├── backend/
-│   ├── main.py              # Servidor FastAPI e Endpoints
-│   ├── rag_engine.py        # Processamento de documentos e FAISS
-│   └── chat_handler.py      # Integração com Gemini e Histórico
+├── main.py              # Servidor FastAPI, rotas HTTP e rate limiting
+├── rag_engine.py        # Extração de texto, chunking, embeddings e índice FAISS
+├── chat_handler.py      # Integração com Google Gemini, histórico e cálculo de tokens
 ├── frontend/
-│   └── index.html           # Interface do Usuário (Single Page)
-├── documents/               # Pasta de upload dos arquivos
-├── .env                     # Configurações sensíveis (não commitado)
-├── requirements.txt         # Lista de bibliotecas
-└── faiss_index.bin          # Índice vetorial persistido (gerado no primeiro uso)
+│   └── index.html       # Interface web do chat e painel de documentos
+├── documents/           # Diretório de armazenamento dos arquivos enviados
+├── requirements.txt     # Dependências do projeto
+└── .env.example         # Template de variáveis de ambiente
 ```
 
-## 🔌 API Endpoints Principais
+---
 
-- `POST /upload`: Envia um novo documento para indexação.
-- `POST /chat`: Envia uma pergunta e recebe a resposta contextualizada.
-- `GET /documentos`: Lista os arquivos atualmente no banco de dados.
-- `DELETE /documentos/{nome}`: Remove um documento e atualiza o índice.
-- `GET /status`: Mostra dados técnicos do sistema (chunks, documentos, etc).
+## Configuração e Execução Local
 
-## ⚠️ Notas Importantes
+### 1. Ambiente Virtual e Dependências
 
-- **Rate Limit**: O sistema permite até 20 requisições por minuto por IP para as rotas de chat e upload.
-- **Memória**: O histórico de cada sessão é mantido em memória no servidor e limitado às últimas 10 trocas de mensagens.
-- **Indexação**: Ao deletar ou adicionar arquivos, o sistema reconstrói o índice `faiss_index.bin` automaticamente para garantir a precisão.
+```bash
+# Criar e ativar ambiente virtual (Windows PowerShell)
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+
+# Instalar dependências
+pip install -r requirements.txt
+```
+
+### 2. Variáveis de Ambiente
+
+Copie o arquivo `.env.example` para `.env` e adicione sua chave do [Google AI Studio](https://aistudio.google.com/):
+
+```env
+GEMINI_API_KEY=sua_chave_aqui
+GEMINI_MODEL=gemini-1.5-flash
+MAX_CHUNKS=4
+MIN_SCORE=0.3
+```
+
+### 3. Iniciar o Servidor
+
+```bash
+uvicorn main:app --reload
+```
+
+Acesse a interface no navegador em `http://127.0.0.1:8000`.
 
 ---
-Desenvolvido como um projeto de demonstração de arquitetura RAG com Gemini.
+
+## Endpoints da API
+
+- **`POST /upload`** — Recebe um documento (`.pdf` ou `.txt`), gera os embeddings e atualiza o índice FAISS.
+- **`POST /chat`** — Recebe a pergunta do usuário, recupera os trechos mais relevantes (`top-k`) e retorna a resposta gerada com as fontes e métricas de tokens.
+- **`GET /documentos`** — Lista os documentos atualmente indexados.
+- **`DELETE /documentos/{nome}`** — Remove um arquivo e reconstrói o índice vetorial.
+- **`GET /status`** — Retorna estatísticas operacionais (total de documentos, chunks indexados e modelo ativo).
+
+---
+
+## Autor e Licença
+
+- **Autor:** [Ariston Gomes](https://www.linkedin.com/in/ariston-gomes/)
+- **Licença:** Distribuído sob a licença MIT.
